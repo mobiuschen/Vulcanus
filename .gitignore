@@ -5,5 +5,8 @@ bin-release/
 # Project property files
 .actionScriptProperties
 .flexProperties
+.flexLibProperties
 .settings/
 .project
+
+.DS_Store
