@@ -72,13 +72,17 @@ public class LogBatch
     
     
     
+    private var _typeDict:Dictionary = new Dictionary();
+    
+    private var _allLogs:Vector.<LogEntity> = new Vector.<LogEntity>();
+    
+    private var _lastLog:LogEntity;
+    
+    
+    
     public function LogBatch()
     {
     }
-    
-    private var typeDict:Dictionary = new Dictionary();
-    
-    private var lastLog:LogEntity;
     
     
     /**
@@ -99,14 +103,14 @@ public class LogBatch
         
         var log:LogEntity = new LogEntity(msg, new Date().time, type);
         //如果时间相同, 则保证添加的顺序.
-        if(lastLog != null && lastLog.time >= log.time)
+        if(_lastLog != null && _lastLog.time >= log.time)
         {
-            log.time = lastLog.time + 1;
+            log.time = _lastLog.time + 1;
         }
         
         push(log);
         
-        lastLog = log;
+        _lastLog = log;
         return log.clone();
     }
     
@@ -123,11 +127,12 @@ public class LogBatch
         if(log == null)
             return false;
         
-        if(typeDict[log.type] == null)
-            typeDict[log.type] = new Vector.<LogEntity>();
+        if(_typeDict[log.type] == null)
+            _typeDict[log.type] = new Vector.<LogEntity>();
         
-        var vec:Vector.<LogEntity> = typeDict[log.type];
+        var vec:Vector.<LogEntity> = _typeDict[log.type];
         vec.push(log);
+        _allLogs.push(log);
         
         return true;
     }
@@ -148,7 +153,7 @@ public class LogBatch
             throw new ArgumentError("ArgumentError");
             return null;
         }
-        return typeDict[type];
+        return _typeDict[type];
     }
     
     
@@ -160,16 +165,38 @@ public class LogBatch
      */    
     public function getAllLogs():Vector.<LogEntity>
     {
-        var all:Vector.<LogEntity> = new Vector.<LogEntity>();
-        var vec:Vector.<LogEntity>;
-        for each(vec in typeDict)
+        return _allLogs.concat();
+    }
+    
+    
+    public function getAllToString():String
+    {
+        var arr:Vector.<String> = new <String>[];
+        _allLogs.forEach(push);
+        return arr.join(SPERATOR);
+        
+        function push(log:LogEntity):void
         {
-            if(vec == null)
-                continue;
-            all = all.concat(vec);
-        }//for
-        all.sort(compare);
-        return all;
+            arr.push(log.toStringWithoutFormat());
+        }
+    }
+    
+    
+    /**
+     * 所有LogEntity，包括类别，都按照时间顺序排列从旧到新排列。
+     * <br/>
+     * 如果只是使用createLog(), 因为本来就是按照时间排列的，无需使用这个方法. 
+     * 
+     */    
+    public function sortByDate():void
+    {
+        _allLogs.sort(compare);
+        
+        var vec:Vector.<LogEntity>;
+        for each(vec in _typeDict)
+            vec.sort(compare);
+        
+        
         
         function compare(log1:LogEntity, log2:LogEntity):int
         {
@@ -182,27 +209,14 @@ public class LogBatch
     }
     
     
-    public function getAllToString():String
-    {
-        var arr:Vector.<String> = new <String>[];
-        getAllLogs().forEach(push);
-        return arr.join(SPERATOR);
-        
-        function push(log:LogEntity):void
-        {
-            arr.push(log.toStringWithoutFormat());
-        }
-    }
-    
-    
     public function clear():void
     {
         var key:String;
-        for(key in typeDict)
+        for(key in _typeDict)
         {
-            typeDict[key] = null;
+            _typeDict[key] = null;
         }//for
-        lastLog = null;
+        _lastLog = null;
     }
     
 }

@@ -27,7 +27,7 @@
         
         /**
          * Debugger是否可用的开关 
-         */        
+         */
         static public var ENABLED:Boolean = true;
         
         /**
@@ -48,8 +48,11 @@
         {
             _fileName =  serverTime + ".log";
             _stage = stage;
-            _ui = ui;
             _logBatch = new LogBatch();
+            
+            _ui = ui;
+            if(_ui != null)
+                _ui.setLogBatch(_logBatch);
         }
         
         
@@ -79,8 +82,11 @@
             {
                 str = args.slice(0, args.length - 1).join(", ");
             }
-			//QFAConsole.log(str, type);
             _logBatch.createLog(type, str);
+            
+            //更新ui
+            if(_ui != null)
+                _ui.update();
 		}
         
         
@@ -163,7 +169,7 @@
             if(lb == null)
                 return false;
             
-            trace(xml.toXMLString());
+            //trace(xml.toXMLString());
             
             _logBatch = lb;
             return true;
@@ -177,8 +183,11 @@
          * 
          * @callback 操作完成之后的返回，原型是callback(success:Boolean)，参数success表示成功与否。
          */        
-        static public function uploadLastLoginBatch(callback:Function):void
+        static public function uploadLastLoginBatch(userInfo:String, callback:Function):void
         {
+            const firstSepr:String = "@@";
+            const secondarySepr:String = "##";
+            
             var file:File = File.applicationStorageDirectory.resolvePath(SAVE_PATH);
             var arr:Array = file.getDirectoryListing();
             if(arr.length == 0)
@@ -191,17 +200,41 @@
             arr.sort(compare);
             file = arr[arr.length - 1];
             var fs:FileStream = new FileStream();
-            var bytes:ByteArray = new ByteArray();
+            
             fs.open(file, FileMode.READ);
-            fs.readBytes(bytes);
+            var content:String = fs.readUTF();
             fs.close();
-            bytes.compress();
+            
+            try
+            {
+                var xml:XML = new XML(content);
+                var lb:LogBatch = LogBatch.deserialize(xml);
+            }
+            catch(error:Error)
+            {
+                if(callback != null)
+                    setTimeout(callback, 10, false);
+                return;
+            }
+            
+            var tempArr:Array = [userInfo];
+            var allLogs:Vector.<LogEntity> = lb.getAllLogs();
+            var l:LogEntity;
+            for(var i:int = 0, n:int = allLogs.length; i < n; i++)
+            {
+                l = allLogs[i];
+                tempArr.push(
+                    [l.msg, l.type, l.time].join(secondarySepr)
+                );
+            }
+            var requestBody:String = tempArr.join(firstSepr);
+            
             
             //To do...上传到服务器
             var cgi:String = "http://nc.qzone.qq.com/cgi-bin/cgi_app_report?i=log";
             var ul:URLLoader = new URLLoader();
             var ur:URLRequest = new URLRequest(cgi);
-            ur.data = bytes;
+            ur.data = requestBody;
             ur.method = URLRequestMethod.POST;
             ul.addEventListener(Event.COMPLETE, onResponse);
             ul.addEventListener(IOErrorEvent.IO_ERROR, onResponse);
@@ -246,14 +279,10 @@
                 return;
             display ? _ui.show() : _ui.hide();
 		}
-		
-        
         
         
         public function Debugger()
         {
         }
-
 	}
-
 }

@@ -3,8 +3,10 @@ package im.mobius.debug.unitest
     import asunit.framework.Assert;
     import asunit.framework.TestCase;
     
+    import flash.display.DisplayObjectContainer;
     import flash.filesystem.File;
     
+    import im.mobius.debug.DarkFog;
     import im.mobius.debug.Debugger;
     import im.mobius.debug.LogBatch;
     import im.mobius.debug.LogEntity;
@@ -20,9 +22,19 @@ package im.mobius.debug.unitest
         
         private var _logBatch:LogBatch;
         
+        private var _logView:DarkFog;
+        
         public function TestCase_LogBatch(testMethod:String=null)
         {
             super(testMethod);
+        }
+        
+        
+        override public function setContext(context:DisplayObjectContainer):void
+        {
+            _logView = new DarkFog();
+            context.addChild(_logView);
+            Debugger.init(context.stage, new Date().time, _logView);
         }
         
         
@@ -168,7 +180,9 @@ package im.mobius.debug.unitest
         public function testUnloadLog():void
         {
             var func:Function = addAsync(callback, 3000);
-            Debugger.uploadLastLoginBatch(func);
+            var uin:String = "346404978";
+            var ts:Number = new Date().time;
+            Debugger.uploadLastLoginBatch(uin+"@@"+ts, func);
                 
             function callback(success:Boolean):void
             {
