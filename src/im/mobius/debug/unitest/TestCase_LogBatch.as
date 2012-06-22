@@ -78,7 +78,8 @@ package im.mobius.debug.unitest
         public function testLogEntityDeserialie():void
         {
             _logBatch = new LogBatch();
-            var log:LogEntity = _logBatch.createLog(LogType.MISC, "Deserialie");
+            var idx:int = _logBatch.createLog(LogType.MISC, "Deserialie");
+            var log:LogEntity = _logBatch.getAllLogs()[idx]; 
             var xml:XML = LogEntity.serialize(log);
             trace(xml.toXMLString());
             

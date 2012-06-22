@@ -100,11 +100,12 @@
          * @param expr
          * @param errorMsg
          * 
+         * @return 返回的是expr的值 
          */        
-        static public function assert(expr:Boolean, errorMsg:String = null):void
+        static public function assert(expr:Boolean, errorMsg:String = null):Boolean
         {
             if(expr)
-                return;
+                return true;
             
             var error:Error = new Error(errorMsg == null ? "Assert Error." : errorMsg);
             if(ENABLED)
@@ -115,6 +116,8 @@
                 log(error.message, error.getStackTrace(), LogType.ASSERT);
             else
                 log(error.message, LogType.ASSERT);
+            
+            return false;
         }
         
             
