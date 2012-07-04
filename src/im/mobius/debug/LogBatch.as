@@ -122,7 +122,7 @@ package im.mobius.debug
          * @return 返回这条Log的索引. -1, 则为失败.
          * 
          */    
-        public function push(log:LogEntity):uint
+        public function push(log:LogEntity):int
         {
             if(log == null)
                 return -1;
