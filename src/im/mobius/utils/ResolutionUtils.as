@@ -8,11 +8,12 @@ package im.mobius.utils
 
 
     /**
+     * Resulotion Utils.
      * 
      * @author mobiuschen
      * 
      */    
-    public class ResolutionCalc
+    public class ResolutionUtils
     {
         
         static public const IPHONE4_RECT:Rectangle = new Rectangle(0, 0, 960, 640);
@@ -51,8 +52,8 @@ package im.mobius.utils
             if(_actScreenRect == null)
             {
                 _actScreenRect = stage.fullScreenSourceRect;
-                SCALE_COMPARED_TO_IP4 = ResolutionCalc.getRectScale(IPHONE4_RECT, _actScreenRect);
-                SCALE_COMPARED_TO_IPAD = ResolutionCalc.getRectScale(IPAD2_RECT, _actScreenRect);
+                SCALE_COMPARED_TO_IP4 = ResolutionUtils.getRectScale(IPHONE4_RECT, _actScreenRect);
+                SCALE_COMPARED_TO_IPAD = ResolutionUtils.getRectScale(IPAD2_RECT, _actScreenRect);
             }
             
             return _actScreenRect;
@@ -250,7 +251,7 @@ package im.mobius.utils
         }
         
         
-        public function ResolutionCalc()
+        public function ResolutionUtils()
         {
         }
     }
