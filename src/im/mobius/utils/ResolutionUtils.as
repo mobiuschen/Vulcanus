@@ -22,7 +22,7 @@ package im.mobius.utils
         
         static public const IPAD3_RECT:Rectangle = new Rectangle(0, 0, 2048, 1536);
         
-        static public var DEF_EXPECT_SCREEN_RECT:Rectangle = IPHONE4_RECT;
+        static public var DEF_SCREEN_RECT:Rectangle = IPHONE4_RECT;
         
         
         
@@ -44,7 +44,7 @@ package im.mobius.utils
         /**
          * 当前屏幕的Rectangle 
          */
-        static public function get ACTUAL_SCREEN_RECT():Rectangle
+        static public function get SCREEN_RECT():Rectangle
         {
             if(stage == null)
                 return new Rectangle();
@@ -70,8 +70,8 @@ package im.mobius.utils
          */    
         static public function translatePoint(expectPoint:Point, expectRect:Rectangle):Point
         {
-            var vS:Number = ACTUAL_SCREEN_RECT.height / expectRect.height;
-            var hS:Number = ACTUAL_SCREEN_RECT.width / expectRect.width;
+            var vS:Number = SCREEN_RECT.height / expectRect.height;
+            var hS:Number = SCREEN_RECT.width / expectRect.width;
             var newP:Point = new Point(expectPoint.x * hS, expectPoint.y * vS);
             return newP;
         }
@@ -145,10 +145,10 @@ package im.mobius.utils
             }
             
             if(expectRect == null)
-                expectRect = DEF_EXPECT_SCREEN_RECT;
+                expectRect = DEF_SCREEN_RECT;
             
             if(actualRect == null)
-                actualRect = ACTUAL_SCREEN_RECT;
+                actualRect = SCREEN_RECT;
             
             var vGap:Number = 0;
             var hGap:Number = 0;
@@ -208,10 +208,10 @@ package im.mobius.utils
             }
             
             if(expectRect == null)
-                expectRect = DEF_EXPECT_SCREEN_RECT;
+                expectRect = DEF_SCREEN_RECT;
             
             if(actualRect == null)
-                actualRect = ACTUAL_SCREEN_RECT;
+                actualRect = SCREEN_RECT;
             
             var mtx:Matrix = view.transform.matrix;
             
