@@ -22,7 +22,7 @@ public class RawComponent
         tf.background = true;
         tf.backgroundColor = 0xAAAAAA;
         tf.text = txt;
-        tf.width = Math.ceil(tf.textWidth / 100) * 100;
+        tf.width = Math.ceil(tf.textWidth / 50) * 50;
         tf.height = 25;
         btn.addChild(tf);
         btn.mouseChildren = false;

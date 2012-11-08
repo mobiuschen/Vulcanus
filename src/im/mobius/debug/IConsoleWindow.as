@@ -4,7 +4,9 @@ package im.mobius.debug
 
 	public interface IConsoleWindow extends IEventDispatcher
 	{
-		function set dataProvider(value:Vector.<LogEntity>):void;
+        function update():void;
+        
+        function setLogBatch(value:LogBatch):void;
         
 		function isHidden():Boolean;
 		
