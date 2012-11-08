@@ -1,11 +1,9 @@
 package im.mobius.debug
 {
-    import mx.logging.Log;
-    
 
     /**
      * 单条的记录 
-     * @author chenmobius
+     * @author mobiuschen
      * 
      */    
     public class LogEntity

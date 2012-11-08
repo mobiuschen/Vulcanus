@@ -2,7 +2,6 @@ package im.mobius.view
 {
     import flash.display.Sprite;
     import flash.text.TextField;
-    import flash.text.TextFieldAutoSize;
     import flash.text.TextFormat;
     import flash.text.TextFormatAlign;
 

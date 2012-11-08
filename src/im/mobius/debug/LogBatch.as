@@ -1,7 +1,6 @@
 package im.mobius.debug
 {
     import flash.utils.Dictionary;
-    import flash.utils.getTimer;
         
     /**
      * LogEntity的数据簇，通过这个类组织、获取各种类型的LogEntity

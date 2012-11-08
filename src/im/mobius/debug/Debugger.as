@@ -12,7 +12,6 @@
 	import flash.net.URLRequest;
 	import flash.net.URLRequestMethod;
 	import flash.system.Capabilities;
-	import flash.utils.ByteArray;
 	import flash.utils.setTimeout;
 
     /**

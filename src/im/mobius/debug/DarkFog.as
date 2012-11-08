@@ -3,7 +3,6 @@ package im.mobius.debug
     import flash.display.Sprite;
     import flash.events.Event;
     import flash.events.MouseEvent;
-    import flash.system.Capabilities;
     import flash.text.StyleSheet;
     import flash.text.TextField;
     
