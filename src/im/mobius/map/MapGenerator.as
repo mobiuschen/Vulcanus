@@ -6,37 +6,50 @@ package im.mobius.map
     import im.mobius.utils.MathM;
     
 
+    /**
+     * 自动生成地图
+     * 
+     * @author Mobius.Chen
+     * 
+     */    
     public class MapGenerator
     {
         static public const WALL_INT:int = 1;
         
         static public const ROAD_INT:int = 0;
-        
-        /**
-         * 地砖密度 
-         */        
-        static private const ROAD_DENSITY:Number = 0.4;
+
         
         public function MapGenerator()
         {
         }
         
         
-        public function getMap(w:int, h:int):Vector.<Vector.<int>>
+        /**
+         *  
+         * 
+         * @param w
+         * @param h
+         * @param roadDesity 初始生成时的地砖密度.
+         * 
+         * @return 返回地图的数据. 
+         * 
+         */        
+        public function generateMap(w:int, h:int, roadDesity:Number = 0.4):Vector.<Vector.<int>>
         {
-            var map:Vector.<Vector.<int>> = initMap(w, h, ROAD_DENSITY);
+            var map:Vector.<Vector.<int>> = initMap(w, h, roadDesity);
             putRoadPointsTogehter(map);
-            var collection:Vector.<Vector.<Point>> = calCollections(map);
-            var centerPoints:Vector.<Point> = searchCollectionCenterPoint(collection);
-            var lines:Vector.<Line> = joint(centerPoints);
-            s(lines, map);
+            var collection:Vector.<Vector.<Point>> = calPile(map);
+            var centerPoints:Vector.<Point> = searchPileCenterPoint(collection);
+            var lines:Vector.<Line> = jointPointsByLine(centerPoints);
+            jointPiles(lines, map);
             
             return map;
         }
         
         
         /**
-         * 生成指定尺寸的地图, 根据地砖密度填充数据.
+         * 生成指定尺寸的地图, 根据地砖密度填充随机数据.
+         * 
          * @param w
          * @param h
          * @param roadDensity 地砖密度
@@ -61,72 +74,60 @@ package im.mobius.map
         
         
         /**
-         * 遍历所有点, 把同类点归拢.
+         * 遍历所有点, 把同类点归拢, 相当于把Road点集结称块.
          *  
          * @param map
          * 
          */        
         private function putRoadPointsTogehter(map:Vector.<Vector.<int>>):void
         {
-            var rN:int = 0;
-            var wN:int = 0;
             for(var i:int = 0, n:int = map.length; i < n; i++)
             {
                 var row:Vector.<int> = map[i];
                 for(var j:int = 0, m:int = row.length; j < m; j++)
                 {
                     //m是列数, n是行数
-                    var weight:int = 0;
-                    if(j > 0)
-                    {
-                        if(i <= 0 || map[i - 1][j - 1] == WALL_INT) weight++;
-                        if(map[i][j - 1] == WALL_INT) weight++;
-                        if(i >= n - 1 || map[i + 1][j - 1] == WALL_INT) weight++;
-                    }
-                    else
-                    {
-                        weight += 3;
-                    }
                     
-                    if(i <= 0 || map[i - 1][j] == WALL_INT) weight++;
-                    if(i >= n - 1 || map[i + 1][j] == WALL_INT) weight++;
+                    //计算周围8个点的墙的数量
+                    var wallNum:int = 0;
+                    wallNum += isWall(j-1, i-1);
+                    wallNum += isWall(j-1, i);
+                    wallNum += isWall(j-1, i+1);
+                    wallNum += isWall(j, i-1);
+                    wallNum += isWall(j, i+1);
+                    wallNum += isWall(j+1, i-1);
+                    wallNum += isWall(j+1, i);
+                    wallNum += isWall(j+1, i+1);
                     
-                    if(j < m - 1)
-                    {
-                        if(i <= 0 || map[i - 1][j + 1] == WALL_INT) weight++;
-                        if(map[i][j + 1] == WALL_INT) weight++;
-                        if(i >= 0 || map[i + 1][j + 1] == WALL_INT) weight++;   
-                    }
-                    else
-                    {
-                        weight += 3;
-                    }
-                    
-                    
-                    if(weight < 4)
-                    {
-                        rN++;
+                    //墙数量小于X, 则将该点设置为ROAD
+                    //墙数量大于Y, 则将该点设置为WALL
+                    //其他情况, 该点不变.
+                    if(wallNum < 4)
                         map[i][j] = ROAD_INT;
-                    }
-                    else if(weight > 5)
-                    {
-                        wN++;
+                    else if(wallNum > 5) 
                         map[i][j] = WALL_INT;
-                    }
                 }//for
             }//for
             //trace(rN, wN);
+            
+            //@return 是墙返回1, 不是返回0.
+            function isWall(x:int, y:int):int
+            {
+                if(x < 0 || x >= m || y < 0 || y >= n)
+                    return 1;
+                return map[y][x] == WALL_INT ? 1 : 0;
+            }
         }
         
 
         /**
-         * 计算map中有几个连接在一起的"块".
+         * 若干个邻接的Point组成一个Pile, 计算map中有几个连接在一起的Pile(堆).
          *  
          * @param map
          * @return 
          * 
          */        
-        private function calCollections(map:Vector.<Vector.<int>>):Vector.<Vector.<Point>>
+        private function calPile(map:Vector.<Vector.<int>>):Vector.<Vector.<Point>>
         {
             var result:Vector.<Vector.<Point>> = new Vector.<Vector.<Point>>();
             for(var i:int = 0, n:int = map.length; i < n; i++)
@@ -155,9 +156,7 @@ package im.mobius.map
                     return false;
                 if(x2 < 0 || x2 >= m || y2 < 0 || y2 >= n || map[y2][x2] == WALL_INT)
                     return false;
-                
                 //Assert.assertTrue(x1 != x2 || y1 != y2);
-                
                 var vec1:Vector.<Point> = null;
                 var vec2:Vector.<Point> = null;
                 for each(var vec:Vector.<Point> in result)
@@ -185,7 +184,6 @@ package im.mobius.map
                     result.splice(result.indexOf(vec1), 1);
                     result.splice(result.indexOf(vec2), 1);
                 }
-                
                 return true;
             }
             
@@ -202,10 +200,12 @@ package im.mobius.map
         
         
         /**
-         * 寻找各个集合的中心点
+         * 寻找各个Pile的中心点 
+         * @param collection
+         * @return 
          * 
          */        
-        private function searchCollectionCenterPoint(collection:Vector.<Vector.<Point>>):Vector.<Point>
+        private function searchPileCenterPoint(collection:Vector.<Vector.<Point>>):Vector.<Point>
         {
             var centerPoints:Vector.<Point> = new Vector.<Point>();
             for(var i:int = 0, n:int = collection.length; i < n; i++)
@@ -214,7 +214,6 @@ package im.mobius.map
                 vec.sort(sortByPosition);
                 centerPoints.push(vec[int(vec.length / 2)]);
             }
-            
             return centerPoints;
             
             
@@ -234,7 +233,14 @@ package im.mobius.map
         }
         
         
-        private function s(lines:Vector.<Line>, map:Vector.<Vector.<int>>):void
+        /**
+         * 
+         *  
+         * @param lines
+         * @param map
+         * 
+         */        
+        private function jointPiles(lines:Vector.<Line>, map:Vector.<Vector.<int>>):void
         {
             for(var i:int = 0, n:int = map.length; i < n; i++)
             {
@@ -256,11 +262,12 @@ package im.mobius.map
         
         
         /**
-         * 根据给定的点, 连接成地图 
+         * 利用给点的点, 组成无环路, 不交叉的地图. 
+         * 
          * @param allPoints
          * 
          */        
-        private function joint(allPoints:Vector.<Point>):Vector.<Line>
+        private function jointPointsByLine(allPoints:Vector.<Point>):Vector.<Line>
         {
             var allLines:Vector.<Line> = getAllLines(allPoints);
             var collections:Vector.<Vector.<Point>> = initCollections(allPoints);
@@ -433,9 +440,9 @@ package im.mobius.map
         
         
         
-        public function _testCalCollections(map:Vector.<Vector.<int>>):Vector.<Vector.<Point>>
+        public function _testCalPiles(map:Vector.<Vector.<int>>):Vector.<Vector.<Point>>
         {
-            return calCollections(map);
+            return calPile(map);
         }
             
     }//class
