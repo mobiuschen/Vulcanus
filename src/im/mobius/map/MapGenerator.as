@@ -34,10 +34,29 @@ package im.mobius.map
          * @return 返回地图的数据. 
          * 
          */        
-        public function generateMap(w:int, h:int, roadDesity:Number = 0.4):Vector.<Vector.<int>>
+        
+        /**
+         * 生成地图. 
+         * 
+         * @param w
+         * @param h
+         * @param entrance 地图入口, 可以为null.
+         * @param exit 地图出口, 可以为null.
+         * @param roadDesity 初始生成时的地砖密度.
+         * @return 返回地图的数据. 
+         * 
+         */        
+        public function generateMap(w:int, h:int, 
+                                    entrance:Point = null, exit:Point = null, 
+                                    roadDesity:Number = 0.3):Vector.<Vector.<int>>
         {
+            if(entrance != null && entrance.x >= w || entrance.y >= h)
+                throw ArgumentError("Argument Error: pram entrance error.");
+            if(exit != null && exit.x >= w || exit.y >= h)
+                throw ArgumentError("Argument Error: pram exit error.");
+            
             var map:Vector.<Vector.<int>> = initMap(w, h, roadDesity);
-            putRoadPointsTogehter(map);
+            putRoadPointsTogehter(map, entrance, exit);
             var collection:Vector.<Vector.<Point>> = calPile(map);
             var centerPoints:Vector.<Point> = searchPileCenterPoint(collection);
             var lines:Vector.<Line> = jointPointsByLine(centerPoints);
@@ -79,7 +98,7 @@ package im.mobius.map
          * @param map
          * 
          */        
-        private function putRoadPointsTogehter(map:Vector.<Vector.<int>>):void
+        private function putRoadPointsTogehter(map:Vector.<Vector.<int>>, entrance:Point, exit:Point):void
         {
             for(var i:int = 0, n:int = map.length; i < n; i++)
             {
@@ -109,6 +128,14 @@ package im.mobius.map
                 }//for
             }//for
             //trace(rN, wN);
+            
+            //把入口加入
+            if(entrance != null)
+                map[entrance.y][entrance.x] = ROAD_INT;
+            //把出口加入
+            if(exit != null)
+                map[exit.y][exit.x] = ROAD_INT;
+            
             
             //@return 是墙返回1, 不是返回0.
             function isWall(x:int, y:int):int
