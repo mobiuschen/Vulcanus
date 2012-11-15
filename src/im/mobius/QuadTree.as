@@ -113,7 +113,7 @@ package im.mobius
                 new <QuadTree>[
                     _topLeft, _topRight, _bottomLeft, _bottomRight
                 ];
-            for(var qt:QuadTree in QuadTree)
+            for each(var qt:QuadTree in childrenTrees)
             {
                 if(qt == null)
                     continue;
