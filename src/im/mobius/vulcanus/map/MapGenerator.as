@@ -1,9 +1,9 @@
-package im.mobius.map
+package im.mobius.vulcanus.map
 {
     import flash.geom.Point;
     import flash.geom.Rectangle;
     
-    import im.mobius.utils.MathM;
+    import im.mobius.vulcanus.utils.MathM;
     
 
     /**

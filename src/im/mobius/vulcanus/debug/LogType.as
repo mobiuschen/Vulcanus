@@ -1,7 +1,5 @@
-package im.mobius.debug
+package im.mobius.vulcanus.debug
 {
-
-
     public class LogType
     {
         /**
@@ -42,7 +40,7 @@ package im.mobius.debug
         /**
          * 所有类别，包括运行时新注册的类别都会在这里。 
          */    
-        static internal const ALL_TYPES:Array = [
+        static public const ALL_TYPES:Array = [
             MISC, WARNING, ERROR,ASSERT, 
             NETWORK, USER_ACTION,
             DEBUG_MOBIUS,

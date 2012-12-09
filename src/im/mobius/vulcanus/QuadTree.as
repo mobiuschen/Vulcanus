@@ -1,4 +1,4 @@
-package im.mobius
+package im.mobius.vulcanus
 {
     import flash.display.DisplayObject;
     import flash.display.Shape;

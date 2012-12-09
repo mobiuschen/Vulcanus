@@ -1,4 +1,4 @@
-package im.mobius.utils
+package im.mobius.vulcanus.utils
 {
     public class PositionAdaptiveMode
     {

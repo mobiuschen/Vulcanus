@@ -1,4 +1,4 @@
-package im.mobius.utils
+package im.mobius.vulcanus.utils
 {
     import flash.geom.Point;
     import flash.geom.Rectangle;
@@ -14,6 +14,23 @@ package im.mobius.utils
     {
         public function MathM()
         {
+        }
+        
+        
+        /**
+         * 计算两点间距离
+         *  
+         * @param x1
+         * @param y1
+         * @param x2
+         * @param y2
+         * 
+         */        
+        static public function pointsDistance(x1:Number, y1:Number, x2:Number, y2:Number):Number
+        {
+           var dx:Number = x2 - x1;
+           var dy:Number = y2 - y1;
+           return Math.sqrt(dx * dx + dy * dy);
         }
         
         

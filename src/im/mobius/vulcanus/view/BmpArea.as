@@ -1,4 +1,4 @@
-package im.mobius.view
+package im.mobius.vulcanus.view
 {
     import flash.display.Bitmap;
     import flash.display.BitmapData;

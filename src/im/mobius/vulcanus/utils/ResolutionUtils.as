@@ -1,4 +1,4 @@
-package im.mobius.utils
+package im.mobius.vulcanus.utils
 {
     import flash.display.DisplayObject;
     import flash.display.Stage;

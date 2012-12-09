@@ -1,4 +1,4 @@
-package im.mobius.debug
+package im.mobius.vulcanus.debug
 {
     import flash.utils.Dictionary;
         

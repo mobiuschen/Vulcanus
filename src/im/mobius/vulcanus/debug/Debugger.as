@@ -1,4 +1,4 @@
-﻿package im.mobius.debug
+﻿package im.mobius.vulcanus.debug
 {
 	import flash.display.Stage;
 	import flash.events.Event;
@@ -13,6 +13,7 @@
 	import flash.net.URLRequestMethod;
 	import flash.system.Capabilities;
 	import flash.utils.setTimeout;
+	
 
     /**
      * 

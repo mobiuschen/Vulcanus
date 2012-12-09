@@ -1,4 +1,4 @@
-package im.mobius.debug
+package im.mobius.vulcanus.debug
 {
     import flash.display.Sprite;
     import flash.events.Event;
@@ -6,8 +6,7 @@ package im.mobius.debug
     import flash.text.StyleSheet;
     import flash.text.TextField;
     
-    import im.mobius.view.RawComponent;
-    
+    import im.mobius.vulcanus.view.RawComponent;
     
     /**
      * 分类显示Log信息的组件。
