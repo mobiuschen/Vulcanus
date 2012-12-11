@@ -14,6 +14,8 @@
 	import flash.system.Capabilities;
 	import flash.utils.setTimeout;
 	
+	import asunit.framework.Assert;
+	
 
     /**
      * 

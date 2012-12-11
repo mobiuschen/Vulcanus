@@ -7,13 +7,25 @@ package im.mobius.vulcanus.zax
     import flash.filesystem.FileStream;
     import flash.net.FileReference;
     import flash.utils.ByteArray;
+    import flash.utils.clearInterval;
+    import flash.utils.setInterval;
     import flash.utils.setTimeout;
     
     import im.mobius.vulcanus.debug.Debugger;
 
+    /**
+     * 
+     * 
+     * 可扩展功能:
+     * <li>可设置.zax文件里最大Block数量</li>
+     * <li>完成deleteByKey(), cmopress()</li>
+     * 
+     * @author mobius.chen
+     * 
+     */    
     public class ZaxFile
     {
-        /*** 版本 */        
+        /*** 版本 */
         static public const ZAX_VERSION:Number = 1.0;
         
         /*** key限制的字节数 */        
@@ -22,34 +34,40 @@ package im.mobius.vulcanus.zax
         /*** 每个ZaxBlockIndex保存在本地后，占多少字节 */        
         static public var IDX_BYTES_LEN:int = 8 + KEY_LIMIT;
         
-        /*** 最大Block数量*/        
-        static public const BLOCK_MAX:int = 100;
+        /*** 默认最大Block数量*/        
+        static public const MAX_BLOCKS:int = 100;
         
         
+        
+        /*** 当前ZaxFile的版本 */        
         private var _version:Number = 0;
         
-        /**
-         * 是否只读 
-         */        
+        /*** 是否只读 */        
         private var _isReadOnly:Boolean = false;
         
-        /**
-         * key -> ZaxBlockIndex 
-         */        
+        /*** key -> ZaxBlockIndex */        
         private var _indexDict:Object;
         
-        /**
-         * ZaxBlockIndex数量 
-         */        
+        /*** ZaxBlockIndex数量 */        
         private var _indexesNum:int = 0;
         
         private var _fileStream:FileStream;
         
         private var _file:File;
         
-        private var _path:String
-        
+        /*** 当前状态. ZaxFileState */        
         private var _state:String;
+        
+        /**
+         * 操作锁。每个操作开始时，会把这个锁+1，完成后-1。所有操作完成后，这个锁==0。
+         * 用于处理多个并发异步操作。
+         */        
+        private var _operationLock:int = 0;
+        
+        /*** 读请求的队列 */        
+        private var _readQueue:Vector.<ReadRequest>;
+        
+        
         
         
         /**
@@ -57,6 +75,7 @@ package im.mobius.vulcanus.zax
          * 
          * @param path
          * @param isReadOnly 是否是只读属性
+         * @param maxBlocks 最大Block数量。如果是这个.zax文件当前已经存在，则会忽略这个参数，以.zax文件的参数为准。
          * 
          */        
         public function ZaxFile(path:String, isReadOnly:Boolean)
@@ -69,48 +88,7 @@ package im.mobius.vulcanus.zax
             }
             
             _isReadOnly = isReadOnly;
-            _path = path;
-            init();
-        }
-        
-        
-        /**
-         * 读取一段资源, 异步。
-         * @param key
-         * @param callback function(ba:ByteArray):void
-         */        
-        public function readByKey(key:String, callback:Function):void
-        {
-            if(!checkState([ZaxFileState.OPEN]))
-                return;
-            
-            var idx:ZaxBlockIndex = _indexDict[key];
-            if(idx == null)
-            {
-                throw new Error("错误的Key");
-                return;
-            }
-            
-            var ba:ByteArray = new ByteArray();
-            if(_fileStream.position == idx.postion)
-            {
-                _fileStream.readBytes(ba, 0, idx.len);
-                setTimeout(callback, 10, ba);
-                return;
-            }
-            
-            //trace("idx", idx.postion, idx.len);
-            //trace("before read:", "_fileStream.position:" + _fileStream.position, "_fileStream.bytesAvailable:" + _fileStream.bytesAvailable);
-            _fileStream.addEventListener(Event.COMPLETE, onSetPositionComplete);
-            _fileStream.position = idx.postion;
-            
-            function onSetPositionComplete(evt:Event):void
-            {
-                _fileStream.removeEventListener(Event.COMPLETE, onSetPositionComplete);
-                _fileStream.readBytes(ba, 0, idx.len);
-                //trace("after read:", "_fileStream.position:" + _fileStream.position, "_fileStream.bytesAvailable:" + _fileStream.bytesAvailable);
-                callback(ba);
-            }
+            init(path);
         }
         
         
@@ -136,22 +114,19 @@ package im.mobius.vulcanus.zax
          * @return 
          * 
          */        
-        /*public function deleteByKey(key:String):Boolean
+        public function deleteByKey(key:String):Boolean
         {
-            if(!checkState([ZaxFileState.OPEN]))
-                return false;
-            
             return false;
-        }*/
+        }
         
         
         /**
-         * 增加一个Block 
-         * @param byteArray
-         * @param key
-         * @param callback function(success:Boolean):void 
          * 
-         */
+         * @param baArray
+         * @param keys
+         * @param callback function(success:Boolean):void
+         * 
+         */        
         public function appendBlock(baArray:Array/*of ByteArray*/, 
                                     keys:Array/*of String*/, 
                                     callback:Function):void
@@ -163,14 +138,14 @@ package im.mobius.vulcanus.zax
             }
             if(_isReadOnly)
             {
-                throw new Error("This is File is readonly.");
+                throw new Error("This is File is read only.");
                 callback(false);
                 return;
             }
             Debugger.assert(baArray.length == keys.length);
-            if(_indexesNum + baArray.length >= BLOCK_MAX)
+            if(_indexesNum + baArray.length >= MAX_BLOCKS)
             {
-                throw new Error("超过ZaxFile可容纳最大的Block数量。最大Block数量:" + BLOCK_MAX);
+                throw new Error("超过ZaxFile可容纳最大的Block数量。最大Block数量:" + MAX_BLOCKS);
                 callback(false);
                 return;
             }
@@ -179,11 +154,12 @@ package im.mobius.vulcanus.zax
             var indexes:Vector.<ZaxBlockIndex> = new Vector.<ZaxBlockIndex>(n);
             
             _state = ZaxFileState.OPERATING;
+            _operationLock++;
             _fileStream.addEventListener(IOErrorEvent.IO_ERROR, onIOError);
-            _fileStream.addEventListener(Event.COMPLETE, onOpen);
+            _fileStream.addEventListener(Event.COMPLETE, onSetPosition);
             _fileStream.position = _fileStream.position + _fileStream.bytesAvailable;
             
-            function onOpen(evt:Event):void
+            function onSetPosition(evt:Event):void
             {
                 //写入内容
                 for(var i:int = 0; i < n; i++)
@@ -198,26 +174,29 @@ package im.mobius.vulcanus.zax
                     idx.postion = _fileStream.position;
                     idx.key = keys[i];
                     idx.len = ba.length;
-                    //trace("idx", idx.postion, idx.len);
-                    //trace("before write:", "_fileStream.position:" + _fileStream.position, "_fileStream.bytesAvailable:" + _fileStream.bytesAvailable);
                     _fileStream.writeBytes(ba, 0, ba.length);
                     _indexDict[k] = idx;
                     _indexesNum++;
                 }
                 
-                _fileStream.removeEventListener(Event.COMPLETE, onOpen);
+                _fileStream.removeEventListener(Event.COMPLETE, onSetPosition);
                 _fileStream.removeEventListener(IOErrorEvent.IO_ERROR, onIOError);
-                //trace("after write:", "_fileStream.position:" + _fileStream.position, "_fileStream.bytesAvailable:" + _fileStream.bytesAvailable);
-                _state = ZaxFileState.OPEN;
+                
+                if(--_operationLock == 0)
+                    _state = ZaxFileState.OPEN;
+                
                 if(callback != null)
                     callback(true);
             }
             
             function onIOError(evt:IOErrorEvent):void
             {
-                _fileStream.removeEventListener(Event.COMPLETE, onOpen);
+                _fileStream.removeEventListener(Event.COMPLETE, onSetPosition);
                 _fileStream.removeEventListener(IOErrorEvent.IO_ERROR, onIOError);
-                _state = ZaxFileState.OPEN;
+                
+                if(--_operationLock == 0)
+                    _state = ZaxFileState.OPEN;
+                
                 if(callback != null)
                     callback(false);
             }
@@ -242,6 +221,8 @@ package im.mobius.vulcanus.zax
                 _fileStream = new FileStream();
             
             _state = ZaxFileState.OPERATING;
+            _operationLock++;
+            
             _fileStream.addEventListener(Event.COMPLETE, onOpenComplete);
             _fileStream.openAsync(_file, FileMode.UPDATE);
             
@@ -251,7 +232,9 @@ package im.mobius.vulcanus.zax
                 
                 _indexDict = {};
                 //状态赋值要写在前面，因为readFileHead()要求状态是OPEN
-                _state = ZaxFileState.OPEN;
+                if(--_operationLock == 0)
+                    _state = ZaxFileState.OPEN;
+                
                 if(_fileStream.bytesAvailable == 0)
                 {
                     //新文件，写入头信息
@@ -260,7 +243,7 @@ package im.mobius.vulcanus.zax
                     _fileStream.writeFloat(ZaxFile.ZAX_VERSION);//写入版本号
                     _fileStream.writeInt(0);//写入Block数量
                     //预留ZaxFile.BLOCK_MAX个Block的空间
-                    var n:int = ZaxFile.BLOCK_MAX * ZaxFile.IDX_BYTES_LEN;
+                    var n:int = ZaxFile.MAX_BLOCKS * ZaxFile.IDX_BYTES_LEN;
                     for(var i:int = 0; i < n; i++)
                         _fileStream.writeByte(0);
                 }
@@ -269,6 +252,7 @@ package im.mobius.vulcanus.zax
                     readFileHead();
                 }
                 
+                _readQueue = new Vector.<ReadRequest>();
                 
                 if(callback != null)
                     callback(true);
@@ -277,19 +261,84 @@ package im.mobius.vulcanus.zax
         
         
         /**
-         * 关闭文件 
-         * @return function(success:Boolean):void
+         * 读取一段资源, 异步。新的读取请求会放入到请求队列中。
          * 
+         * @param key
+         * @param callback function(key:String, ba:ByteArray):void
          */        
-        public function close(callback:Function):void
+        public function readByKey(key:String, callback:Function):void
         {
-            if(!checkState([ZaxFileState.OPEN]))
+            if(!checkState([ZaxFileState.OPEN, ZaxFileState.OPERATING]))
+                return;
+            if(key == null || key == "" || callback == null)
             {
-                callback(false);
+                throw new ArgumentError("无效的参数.");
                 return;
             }
-            _state = ZaxFileState.OPERATING;
-            saveIndexes(onSaveIndexesComplete);
+            var idx:ZaxBlockIndex = _indexDict[key];
+            if(idx == null)
+            {
+                throw new Error("错误的Key");
+                callback(key, null);
+                return;
+            }
+            
+            var startReadFlg:Boolean = _readQueue.length == 0;
+            var req:ReadRequest = new ReadRequest();
+            req.idx = idx;
+            req.callback = callback;
+            _readQueue.push(req);
+            
+            if(startReadFlg)
+            {
+                //启动读取
+                _operationLock++;
+                _state = ZaxFileState.OPERATING;
+                readNext();
+            }
+        }
+        
+        
+        
+        /**
+         * 关闭文件。如果当前有请求未完成，会等待请求完成之后，再关闭。
+         * 
+         * @param callback function(success:Boolean):void
+         * 
+         */
+        public function close(callback:Function):void
+        {
+            var checkTimeID:int = -1;
+            
+            if(_state == ZaxFileState.OPEN)
+            {
+                //理想情况，没有其他操作进行
+                _state = ZaxFileState.OPERATING;
+                _operationLock++;
+                checkOtherComplete();
+            }
+            else if(_state == ZaxFileState.OPERATING)
+            {
+                //有其他操作正在进行，等待完成
+                _state = ZaxFileState.OPERATING;
+                _operationLock++;
+                checkTimeID = setInterval(checkOtherComplete, 20);
+            }
+            else if(callback != null)//其他情况，标识close操作失败
+                setTimeout(callback, 10, false);
+
+            
+            function checkOtherComplete():void
+            {
+                //等待其他操作完成
+                if(_operationLock > 1)
+                    return;
+                
+                Debugger.assert(_operationLock == 1);
+                clearInterval(checkTimeID);
+                checkTimeID = -1;
+                saveIndexes(onSaveIndexesComplete);   
+            }
             
             function onSaveIndexesComplete(success:Boolean):void
             {
@@ -303,49 +352,10 @@ package im.mobius.vulcanus.zax
                 _fileStream = null;
                 _indexDict = null;
                 _indexesNum = 0;
+                
+                Debugger.assert(_operationLock == 1);
+                _operationLock = 0;
                 _state = ZaxFileState.CLOSED;
-                
-                callback(true);
-            }
-        }
-        
-        
-        /**
-         *  
-         * @param callback function(success:Boolean):void
-         * 
-         */        
-        private function saveIndexes(callback:Function):void
-        {
-            _fileStream.addEventListener(Event.COMPLETE, onSetPositionComplete);
-            _fileStream.position = 4;//跳过版本号
-            
-            function onSetPositionComplete(evt:Event):void
-            {
-                _fileStream.removeEventListener(Event.COMPLETE, onSetPositionComplete);
-                _fileStream.writeInt(_indexesNum);
-                var count:int = 0;
-                for(var k:String in _indexDict)
-                {
-                    count++;
-                    
-                    var keyBa:ByteArray = new ByteArray();
-                    keyBa.writeUTFBytes(k);
-                    var fillLen:int = Math.max(0, KEY_LIMIT - keyBa.length);
-                    //key长度不够KEY_LIMIT字节，则后面填充0。
-                    for(var i:int = 0; i < fillLen; i++)
-                    {
-                        keyBa.writeByte(0);
-                    }
-                    Debugger.assert(keyBa.length == KEY_LIMIT);
-                    
-                    var idx:ZaxBlockIndex = _indexDict[k];
-                    _fileStream.writeInt(idx.postion);
-                    _fileStream.writeInt(idx.len);
-                    _fileStream.writeBytes(keyBa, 0, keyBa.length);
-                }
-                Debugger.assert(count == _indexesNum);
-                
                 callback(true);
             }
         }
@@ -370,16 +380,16 @@ package im.mobius.vulcanus.zax
          */        
         public function getVersion():Number
         {
-            if(!checkState([ZaxFileState.OPEN]))
+            if(!checkState([ZaxFileState.OPEN, ZaxFileState.OPERATING]))
                 return 0;
             
             return _version;
         }
             
         
-        private function init():void
+        private function init(path:String):void
         {
-            _file = new File(_path);
+            _file = new File(path);
             var file:FileReference;
             if(_file.isPackage)
             {
@@ -435,11 +445,116 @@ package im.mobius.vulcanus.zax
         }
         
         
-        private function checkState(permittedState:Array):Boolean
+        private function readNext():void
+        {
+            if(_readQueue == null || _readQueue.length == 0)
+                return;
+            
+            var req:ReadRequest = _readQueue[0];
+            var ba:ByteArray = new ByteArray();
+            if(_fileStream.position == req.idx.postion)
+            {
+                _fileStream.readBytes(ba, 0, req.idx.len);
+                callbackAll();
+            }
+            else
+            {
+                _fileStream.addEventListener(Event.COMPLETE, onSetPositionComplete);
+                _fileStream.position = req.idx.postion;
+            }
+            
+            function onSetPositionComplete(evt:Event):void
+            {
+                _fileStream.removeEventListener(Event.COMPLETE, onSetPositionComplete);
+                _fileStream.readBytes(ba, 0, req.idx.len);
+                callbackAll();
+            }
+            
+            function callbackAll():void
+            {
+                //这里要判断null，因为可能ZaxFile被close了
+                if(_readQueue == null)
+                    return;
+                
+                //构造一个新Vector，取代原来的Vector
+                var newVec:Vector.<ReadRequest> = new Vector.<ReadRequest>();
+                for each(var r:ReadRequest in _readQueue)
+                {
+                    if(r.idx.key != req.idx.key)
+                    {
+                        newVec.push(r);
+                        continue;
+                    }
+                    if(r == _readQueue[0])
+                        continue;
+                    //如果找到同样请求，则把ByteArray复制一份，发给另外请求.
+                    var newBa:ByteArray = new ByteArray();
+                    newBa.writeBytes(ba, 0, ba.length);
+                    newBa.position = 0;
+                    r.callback(r.idx.key, newBa);
+                }
+                _readQueue[0].callback(req.idx.key, ba);
+                
+                if(newVec.length != _readQueue.length)
+                    _readQueue = newVec;
+                
+                
+                if(_readQueue.length > 0)
+                    readNext();
+                else if(--_operationLock == 0)
+                    _state = ZaxFileState.OPEN;
+            }
+        }
+        
+        
+        /**
+         * 把索引信息保存到文件
+         * @param callback function(success:Boolean):void
+         * 
+         */        
+        private function saveIndexes(callback:Function):void
+        {
+            _fileStream.addEventListener(Event.COMPLETE, onSetPositionComplete);
+            _fileStream.position = 4;//跳过版本号
+            
+            function onSetPositionComplete(evt:Event):void
+            {
+                _fileStream.removeEventListener(Event.COMPLETE, onSetPositionComplete);
+                _fileStream.writeInt(_indexesNum);
+                var count:int = 0;
+                for(var k:String in _indexDict)
+                {
+                    count++;
+                    
+                    var keyBa:ByteArray = new ByteArray();
+                    keyBa.writeUTFBytes(k);
+                    var fillLen:int = Math.max(0, KEY_LIMIT - keyBa.length);
+                    //key长度不够KEY_LIMIT字节，则后面填充0。
+                    for(var i:int = 0; i < fillLen; i++)
+                    {
+                        keyBa.writeByte(0);
+                    }
+                    Debugger.assert(keyBa.length == KEY_LIMIT);
+                    
+                    var idx:ZaxBlockIndex = _indexDict[k];
+                    _fileStream.writeInt(idx.postion);
+                    _fileStream.writeInt(idx.len);
+                    _fileStream.writeBytes(keyBa, 0, keyBa.length);
+                }
+                Debugger.assert(count == _indexesNum);
+                
+                callback(true);
+            }
+        }
+        
+        
+        
+        private function checkState(permittedState:Array, throwError:Boolean = true):Boolean
         {
             if(permittedState.indexOf(_state) < 0)
             {
-                throw new Error("改状态下不允许此操作: state=" + _state);
+                if(throwError)
+                    throw new Error("改状态下不允许此操作: state=" + _state);
                 return false;
             }
             return true;
@@ -461,4 +576,12 @@ package im.mobius.vulcanus.zax
         }
         
     }
+}
+
+import im.mobius.vulcanus.zax.ZaxBlockIndex;
+
+class ReadRequest
+{
+    public var idx:ZaxBlockIndex;
+    public var callback:Function;
 }
