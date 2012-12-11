@@ -206,7 +206,7 @@ package im.mobius.vulcanus.zax
         /**
          * 异步打开文件 
          * 
-         * @return function(success:Boolean):void
+         * @param callback function(success:Boolean):void
          * 
          */        
         public function open(callback:Function):void
@@ -361,6 +361,24 @@ package im.mobius.vulcanus.zax
         }
         
         
+        /**
+         * 返回所有key。 
+         * @return Array of String.
+         * 
+         */        
+        public function getKeys():Array/*of String*/
+        {
+            if(_indexDict == null)
+                return null;
+            
+            var keys:Array = [];
+            for(var k:String in _indexDict)
+                keys.push(k);
+            
+            return keys;
+        }
+        
+        
         public function getState():String
         {
             return _state;
@@ -370,6 +388,12 @@ package im.mobius.vulcanus.zax
         public function isReadOnly():Boolean
         {
             return _isReadOnly;
+        }
+        
+        
+        public function getPath():String
+        {
+            return _file.nativePath;
         }
         
         
